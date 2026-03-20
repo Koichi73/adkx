@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""preset_server.py: adk web + ASGI ミドルウェアによる preset state 自動注入サーバー。
+"""preset_server.py: adk web 互換 CLI + preset state 自動注入ミドルウェア。
 
 Usage:
     python preset_server.py .
     python preset_server.py . --port 8080
     python preset_server.py /path/to/agents --host 0.0.0.0 --port 8000
+
+adk web と同じオプションをすべてサポートしつつ、
+--preset フラグ（デフォルト有効）で PresetMiddleware を追加します。
 
 各エージェントディレクトリの .adk/preset.yaml (または preset.yaml) に
 initial_state を書いておくと、「New Session」ボタンを押した際に
@@ -19,19 +22,37 @@ preset.yaml の例:
 
 from __future__ import annotations
 
-import argparse
+import functools
 import json
 import logging
+import os
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
+
+import click
+import uvicorn
+from fastapi import FastAPI
+
+from google.adk.cli.fast_api import get_fast_api_app
+from google.adk.cli.utils import logs
 
 from preset import find_preset_file, load_preset
 
 logger = logging.getLogger(__name__)
 
+LOG_LEVELS = click.Choice(
+    ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    case_sensitive=False,
+)
+
 SESSION_PATH = re.compile(r"^/apps/([^/]+)/users/[^/]+/sessions$")
 
+
+# ---------------------------------------------------------------------------
+# PresetMiddleware (ASGI)
+# ---------------------------------------------------------------------------
 
 class PresetMiddleware:
     """POST /apps/{app}/users/{user}/sessions に preset state を透過注入する純粋 ASGI ミドルウェア。"""
@@ -53,7 +74,6 @@ class PresetMiddleware:
             app_name = m.group(1)
             preset = self._load_preset(app_name)
             if preset and preset.get("state"):
-                # 元のボディを全て読み取る
                 body_parts = []
                 while True:
                     message = await receive()
@@ -63,12 +83,10 @@ class PresetMiddleware:
                 body = b"".join(body_parts)
 
                 data = json.loads(body) if body else {}
-                # フロントエンドが渡した state があればそちらを優先（マージして上書き）
                 merged = {**preset["state"], **(data.get("state") or {})}
                 data["state"] = merged
                 new_body = json.dumps(data).encode()
 
-                # ヘッダーの content-length / content-type を更新
                 new_headers = []
                 seen_ct = False
                 seen_cl = False
@@ -95,7 +113,6 @@ class PresetMiddleware:
                     if not body_sent:
                         body_sent = True
                         return {"type": "http.request", "body": new_body, "more_body": False}
-                    # ボディ送信後は元の receive に委譲（disconnect 検知用）
                     return await receive()
 
                 logger.info(
@@ -120,92 +137,138 @@ class PresetMiddleware:
             return None
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="adk web + preset state 自動注入サーバー",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python preset_server.py .
-  python preset_server.py /path/to/agents --port 8080
-  python preset_server.py . --host 0.0.0.0 --session-service-uri sqlite:///sessions.db
-        """,
-    )
-    parser.add_argument(
-        "agents_dir",
-        nargs="?",
-        default=".",
-        help="エージェントが入っているディレクトリ (default: .)",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="ポート番号 (default: 8000)",
-    )
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="ホスト (default: 127.0.0.1)",
-    )
-    parser.add_argument(
-        "--session-service-uri",
-        default=None,
-        help="セッションサービス URI (例: sqlite:///sessions.db)",
-    )
-    parser.add_argument(
-        "--artifact-service-uri",
-        default=None,
-        help="アーティファクトサービス URI",
-    )
-    parser.add_argument(
-        "--memory-service-uri",
-        default=None,
-        help="メモリサービス URI",
-    )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="ログレベル (default: INFO)",
-    )
-    return parser.parse_args()
+# ---------------------------------------------------------------------------
+# CLI (adk web 互換)
+# ---------------------------------------------------------------------------
 
+@click.command()
+@click.argument(
+    "agents_dir",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True),
+    default=os.getcwd,
+)
+@click.option("--host", type=str, default="127.0.0.1", show_default=True, help="The binding host of the server.")
+@click.option("--port", type=int, default=8000, help="The port of the server.")
+@click.option("--allow_origins", multiple=True, help="Origins to allow for CORS.")
+@click.option("-v", "--verbose", is_flag=True, default=False, help="Enable verbose (DEBUG) logging.")
+@click.option("--log_level", type=LOG_LEVELS, default="INFO", help="Set the logging level.")
+@click.option("--trace_to_cloud", is_flag=True, default=False, help="Enable cloud trace for telemetry.")
+@click.option("--otel_to_cloud", is_flag=True, default=False, help="Write OTel data to Google Cloud.")
+@click.option("--reload/--no-reload", default=True, help="Enable auto reload for server.")
+@click.option("--a2a", is_flag=True, default=False, help="Enable A2A endpoint.")
+@click.option("--reload_agents", is_flag=True, default=False, help="Enable live reload for agents changes.")
+@click.option("--eval_storage_uri", type=str, default=None, help="Evals storage URI (e.g. gs://bucket).")
+@click.option("--extra_plugins", multiple=True, help="Extra plugin classes or instances.")
+@click.option("--url_prefix", type=str, default=None, help="URL path prefix for reverse proxy.")
+@click.option("--session_service_uri", default=None, help="Session service URI.")
+@click.option("--artifact_service_uri", type=str, default=None, help="Artifact service URI.")
+@click.option("--memory_service_uri", type=str, default=None, help="Memory service URI.")
+@click.option("--use_local_storage/--no_use_local_storage", default=True, show_default=True, help="Use local .adk storage.")
+@click.option("--logo-text", type=str, default=None, help="Logo text in web UI.")
+@click.option("--logo-image-url", type=str, default=None, help="Logo image URL in web UI.")
+# --- preset 固有オプション ---
+@click.option("--preset/--no-preset", default=True, show_default=True, help="Enable PresetMiddleware for auto state injection.")
+def cli_preset_web(
+    agents_dir: str,
+    host: str,
+    port: int,
+    allow_origins: Optional[tuple[str, ...]],
+    verbose: bool,
+    log_level: str,
+    trace_to_cloud: bool,
+    otel_to_cloud: bool,
+    reload: bool,
+    a2a: bool,
+    reload_agents: bool,
+    eval_storage_uri: Optional[str],
+    extra_plugins: Optional[tuple[str, ...]],
+    url_prefix: Optional[str],
+    session_service_uri: Optional[str],
+    artifact_service_uri: Optional[str],
+    memory_service_uri: Optional[str],
+    use_local_storage: bool,
+    logo_text: Optional[str],
+    logo_image_url: Optional[str],
+    preset: bool,
+):
+    """Starts a FastAPI server with Web UI for agents (with preset support).
 
-def main():
-    args = parse_args()
+    AGENTS_DIR: The directory of agents, where each subdirectory is a single
+    agent, containing at least __init__.py and agent.py files.
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    Example:
 
-    agents_dir = Path(args.agents_dir).resolve()
-    if not agents_dir.is_dir():
-        print(f"Error: agents_dir '{agents_dir}' is not a directory.")
-        raise SystemExit(1)
+      python preset_server.py path/to/agents_dir
+      python preset_server.py . --port 8080 --no-preset
+    """
+    if verbose and log_level == "INFO":
+        log_level = "DEBUG"
 
-    from google.adk.cli.fast_api import get_fast_api_app
-    import uvicorn
+    logs.setup_adk_logger(getattr(logging, log_level.upper()))
+
+    agents_dir_path = Path(agents_dir).resolve()
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        preset_msg = " + PresetMiddleware" if preset else ""
+        click.secho(
+            f"""
++-----------------------------------------------------------------------------+
+| ADK Web Server started{preset_msg:<53s}|
+|                                                                             |
+| For local testing, access at http://{host}:{port}.{" " * (29 - len(str(port)))}|
++-----------------------------------------------------------------------------+
+""",
+            fg="green",
+        )
+        yield
+        click.secho(
+            """
++-----------------------------------------------------------------------------+
+| ADK Web Server shutting down...                                             |
++-----------------------------------------------------------------------------+
+""",
+            fg="green",
+        )
 
     app = get_fast_api_app(
-        agents_dir=str(agents_dir),
+        agents_dir=agents_dir,
+        session_service_uri=session_service_uri,
+        artifact_service_uri=artifact_service_uri,
+        memory_service_uri=memory_service_uri,
+        use_local_storage=use_local_storage,
+        eval_storage_uri=eval_storage_uri,
+        allow_origins=list(allow_origins) if allow_origins else None,
         web=True,
-        host=args.host,
-        port=args.port,
-        session_service_uri=args.session_service_uri,
-        artifact_service_uri=args.artifact_service_uri,
-        memory_service_uri=args.memory_service_uri,
+        trace_to_cloud=trace_to_cloud,
+        otel_to_cloud=otel_to_cloud,
+        lifespan=_lifespan,
+        a2a=a2a,
+        host=host,
+        port=port,
+        url_prefix=url_prefix,
+        reload_agents=reload_agents,
+        extra_plugins=list(extra_plugins) if extra_plugins else None,
+        logo_text=logo_text,
+        logo_image_url=logo_image_url,
     )
-    app.add_middleware(PresetMiddleware, agents_dir=agents_dir)
 
-    print(f"Starting preset_server at http://{args.host}:{args.port}")
-    print(f"Agents dir: {agents_dir}")
-    print("PresetMiddleware: POST /apps/*/users/*/sessions に preset state を注入します")
-    print()
+    if preset:
+        app.add_middleware(PresetMiddleware, agents_dir=agents_dir_path)
+        click.secho(
+            "PresetMiddleware: POST /apps/*/users/*/sessions に preset state を注入します",
+            fg="cyan",
+        )
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        reload=reload,
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 
 if __name__ == "__main__":
-    main()
+    cli_preset_web()
