@@ -7,7 +7,7 @@ import logging
 import re
 from pathlib import Path
 
-from preset_server.processors import InitialStateProcessor, SessionProcessor
+from adkx.processors import InitialStateProcessor, SessionProcessor
 
 logger = logging.getLogger(__name__)
 

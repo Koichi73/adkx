@@ -16,9 +16,9 @@ from fastapi import FastAPI
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.cli.utils import logs
 
-from preset_server.middleware import PresetMiddleware
-from preset_server.processors import InitialStateProcessor
-from preset_server.promote import cleanup_auto_generated, generate_alias_dirs
+from adkx.middleware import PresetMiddleware
+from adkx.processors import InitialStateProcessor
+from adkx.promote import cleanup_auto_generated, generate_alias_dirs
 
 LOG_LEVELS = click.Choice(
     ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -82,8 +82,8 @@ def cli_preset_web(
 
     \b
     Examples:
-      python -m preset_server path/to/agents_dir
-      python -m preset_server . --port 8080 --no-preset
+      python -m adkx path/to/agents_dir
+      python -m adkx . --port 8080 --no-preset
     """
     if verbose and log_level == "INFO":
         log_level = "DEBUG"

@@ -1,22 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "gemini-3-in-agent-engine"
+name = "adkx"
 version = "0.1.0"
-description = "Deploy ADK agents with Gemini 3 to Agent Engine."
+description = "ADK extended Server"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
+authors = [{ name = "Koichi Ozaki" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "google-adk>=1.27.1",
-    "google-cloud-aiplatform[adk,agent-engines]>=1.141.0",
-    "google-genai>=1.67.0",
-    "pydantic>=2.12.5",
-    "python-dotenv>=1.2.2",
-    "pyyaml>=6.0.3",
-    "requests>=2.32.5",
+    "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Koichi73/adkx"
+Repository = "https://github.com/Koichi73/adkx"
+Issues = "https://github.com/Koichi73/adkx/issues"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
+    "httpx>=0.28",
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/adkx"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/adkx"]

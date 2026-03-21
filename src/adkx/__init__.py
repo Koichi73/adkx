@@ -1,13 +1,13 @@
-"""preset_server: adk web compatible server with preset support.
+"""adkx: adk web compatible server with preset support.
 
 Provides automatic state injection and sub-agent promotion via
 preset.yaml configuration files.
 """
 
-from preset_server.config import find_preset_file, load_raw_yaml
-from preset_server.middleware import PresetMiddleware
-from preset_server.processors import InitialStateProcessor, SessionProcessor
-from preset_server.promote import (
+from adkx.config import find_preset_file, load_raw_yaml
+from adkx.middleware import PresetMiddleware
+from adkx.processors import InitialStateProcessor, SessionProcessor
+from adkx.promote import (
     _AUTO_GENERATED_MARKER,
     cleanup_auto_generated,
     generate_alias_dirs,

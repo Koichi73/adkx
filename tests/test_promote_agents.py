@@ -1,16 +1,12 @@
 """Tests for promote_agents: generate_alias_dirs / cleanup_auto_generated."""
 
-import sys
 import textwrap
 from pathlib import Path
 
 import pytest
 import yaml
 
-# Add project root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from preset_server import generate_alias_dirs, cleanup_auto_generated, _AUTO_GENERATED_MARKER
+from adkx import generate_alias_dirs, cleanup_auto_generated, _AUTO_GENERATED_MARKER
 
 
 FIXTURES = Path(__file__).resolve().parent / "promote_agents"

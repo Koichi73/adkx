@@ -13,7 +13,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Protocol, runtime_checkable
 
-from preset_server.config import find_preset_file, load_raw_yaml
+from adkx.config import find_preset_file, load_raw_yaml
 
 logger = logging.getLogger(__name__)
 

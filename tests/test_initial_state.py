@@ -1,6 +1,5 @@
 """Tests for PresetMiddleware: state injection and merge behavior."""
 
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +8,8 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from preset_server import PresetMiddleware
-from preset_server.processors import SessionProcessor
+from adkx import PresetMiddleware
+from adkx.processors import SessionProcessor
 
 
 class StubProcessor:
