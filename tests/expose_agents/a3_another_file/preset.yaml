@@ -1,0 +1,2 @@
+promote_agents:
+  - attr: sub_agent.greet_agent
