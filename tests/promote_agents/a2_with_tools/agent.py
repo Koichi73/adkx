@@ -12,4 +12,4 @@ greet_agent = Agent(
     tools=[test_tool_1, test_tool_2]
 )
 
-# no root_agent, only greet_agent is tested in this case.
+# no root_agent, only sub-agents are tested in this case.

@@ -1,0 +1,5 @@
+promote_agents:
+  cat_agent:
+    module: cat_agent
+  dog_agent:
+    module: sub_agents.dog_agent

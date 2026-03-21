@@ -1,2 +1,3 @@
 promote_agents:
-  - attr: agent.greet_agent
+  greet_agent: 
+    module: agent

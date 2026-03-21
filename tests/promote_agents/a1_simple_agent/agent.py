@@ -7,4 +7,4 @@ greet_agent = Agent(
     instruction="Please greet the user.",
 )
 
-# no root_agent, only greet_agent is tested in this case.
+# no root_agent, only sub-agents are tested in this case.
