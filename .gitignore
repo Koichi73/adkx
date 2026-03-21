@@ -17,6 +17,7 @@ venv.bak/
 .DS_Store
 bin
 memo.md
+_archive/
 
 # Local 'adk web' logs
 adk_web_log.txt
