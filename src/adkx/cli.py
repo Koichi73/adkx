@@ -52,7 +52,7 @@ LOG_LEVELS = click.Choice(
 @click.option("--logo-text", type=str, default=None, help="Logo text in web UI.")
 @click.option("--logo-image-url", type=str, default=None, help="Logo image URL in web UI.")
 @click.option("--preset/--no-preset", default=True, show_default=True, help="Enable PresetMiddleware for auto state injection.")
-def cli_preset_web(
+def main(
     agents_dir: str,
     host: str,
     port: int,

@@ -1,5 +1,5 @@
 """Entry point for ``python -m adkx``."""
 
-from adkx.cli import cli_preset_web
+from adkx.cli import main
 
-cli_preset_web()
+main()

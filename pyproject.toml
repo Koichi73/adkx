@@ -25,6 +25,9 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.scripts]
+adkx = "adkx.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/Koichi73/adkx"
 Repository = "https://github.com/Koichi73/adkx"
