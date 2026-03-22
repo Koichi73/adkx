@@ -5,11 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "adkx"
 version = "0.1.0"
-description = "ADK extended Server"
+description = "Extension toolkit for Google ADK"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
 authors = [{ name = "Koichi Ozaki" }]
+keywords = ["adk", "agent", "google-adk", "llm"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 dependencies = [
     "google-adk>=1.27.1",

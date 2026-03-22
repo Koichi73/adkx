@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from adkx import generate_alias_dirs, cleanup_auto_generated, _AUTO_GENERATED_MARKER
+from adkx import generate_alias_dirs, cleanup_auto_generated
+from adkx.promote import _AUTO_GENERATED_MARKER
 
 
 FIXTURES = Path(__file__).resolve().parent / "promote_agents"
