@@ -1,4 +1,4 @@
-"""Click CLI command for starting the preset-enhanced adk web server."""
+"""Click CLI commands for adkx."""
 
 from __future__ import annotations
 
@@ -26,7 +26,47 @@ LOG_LEVELS = click.Choice(
 )
 
 
-@click.command()
+@click.group()
+def main():
+    """ADK extended CLI tools."""
+    pass
+
+
+# ---------------------------------------------------------------------------
+# adkx init
+# ---------------------------------------------------------------------------
+
+_PRESET_TEMPLATE = """\
+initial_state:
+
+promote_agents:
+"""
+
+
+@main.command("init")
+@click.argument(
+    "dir",
+    default=".",
+    type=click.Path(file_okay=False, resolve_path=True),
+)
+def init(dir: str):
+    """Initialize a preset.yaml in the specified directory."""
+    dir_path = Path(dir)
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+    preset_path = dir_path / "preset.yaml"
+    if preset_path.exists():
+        raise click.ClickException(f"preset.yaml already exists: {preset_path}")
+
+    preset_path.write_text(_PRESET_TEMPLATE)
+    click.secho(f"Created {preset_path}", fg="green")
+
+
+# ---------------------------------------------------------------------------
+# adkx run
+# ---------------------------------------------------------------------------
+
+@main.command("run")
 @click.argument(
     "agents_dir",
     type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True),
@@ -52,7 +92,7 @@ LOG_LEVELS = click.Choice(
 @click.option("--logo-text", type=str, default=None, help="Logo text in web UI.")
 @click.option("--logo-image-url", type=str, default=None, help="Logo image URL in web UI.")
 @click.option("--preset/--no-preset", default=True, show_default=True, help="Enable PresetMiddleware for auto state injection.")
-def main(
+def run(
     agents_dir: str,
     host: str,
     port: int,
