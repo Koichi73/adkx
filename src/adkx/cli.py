@@ -63,10 +63,10 @@ def init(dir: str):
 
 
 # ---------------------------------------------------------------------------
-# adkx run
+# adkx web
 # ---------------------------------------------------------------------------
 
-@main.command("run")
+@main.command("web")
 @click.argument(
     "agents_dir",
     type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True),
